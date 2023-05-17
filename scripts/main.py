@@ -15,11 +15,20 @@ async def on_message(message):
 
     ref_id = message.reference.message_id if message.reference else None
     thread_id = message.channel.id if isinstance(message.channel, discord.Thread) else None
-    message_type = 'replying_in_thread' if thread_id and ref_id else ('thread' if thread_id else ('reply' if ref_id else 'original'))
+    message_type = 'replying_in_thread' if thread_id and ref_id else ('thread' if thread_id else ('reply' if ref_id else 'normal'))
+
+    nick = message.author.nick if isinstance(message.author, discord.Member) else None
 
     await database_query(
         "INSERT INTO discord (timestamp, user_id, username, discriminator, nick, message_id, content, channel, ref_id, thread_id, message_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (datetime.now(), message.author.id, message.author.name, message.author.discriminator, message.author.nick, message.id, message.content, message.channel.name, ref_id, thread_id, message_type)
+        (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, message.content, message.channel.name, ref_id, thread_id, message_type)
+    )
+
+@discord_connector.event
+async def on_message_delete(message):
+    await database_query(
+        "UPDATE discord SET deleted = %s WHERE message_id = %s",
+        (datetime.now(), message.id)
     )
 
 @discord_connector.event
