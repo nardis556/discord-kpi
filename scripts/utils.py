@@ -1,8 +1,6 @@
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential
 from init import database_connector, discord_connector
-from main import on_message
-
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def database_query(query, values=None):
@@ -24,7 +22,7 @@ async def parse_reactions(reactions):
             reactions_dict[emoji] = int(count)
     return reactions_dict
 
-async def update_reactions(reaction, user, message):
+async def update_reactions(reaction, user, message, on_message):
     db = database_connector.connect()
     cursor = db.cursor()
     cursor.execute("SELECT reactions FROM discord WHERE message_id = %s", (message.id,))
@@ -49,7 +47,7 @@ async def update_reactions(reaction, user, message):
         (reactions_str, message.id)
     )
 
-async def remove_reactions(reaction, user, message):
+async def remove_reactions(reaction, user, message, on_message):
     db = database_connector.connect()
     cursor = db.cursor()
     cursor.execute("SELECT reactions FROM discord WHERE message_id = %s", (message.id,))

@@ -4,7 +4,6 @@ from datetime import datetime
 from init import discord_connector
 from utils import database_query, update_reactions, remove_reactions
 
-
 @discord_connector.event
 async def on_ready():
     print(f'{discord_connector.user.name} connected')
@@ -16,7 +15,7 @@ async def on_message(message):
 
     ref_id = message.reference.message_id if message.reference else None
     thread_id = message.channel.id if isinstance(message.channel, discord.Thread) else None
-    message_type = 'replying_in_thread' if thread_id and ref_id else ('thread' if thread_id else ('reply' if ref_id else 'normal'))
+    message_type = 'replying_in_thread' if thread_id and ref_id else ('thread' if thread_id else ('reply' if ref_id else 'original'))
 
     await database_query(
         "INSERT INTO discord (timestamp, user_id, username, discriminator, nick, message_id, content, channel, ref_id, thread_id, message_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
@@ -35,17 +34,13 @@ async def on_message_edit(before, after):
 
 @discord_connector.event
 async def on_reaction_add(reaction, user):
-    if user == discord_connector.user:
-        return
     message = await reaction.message.channel.fetch_message(reaction.message.id)
-    await update_reactions(reaction, user, message)
+    await update_reactions(reaction, user, message, on_message)
 
 @discord_connector.event
 async def on_reaction_remove(reaction, user):
-    if user == discord_connector.user:
-        return
     message = await reaction.message.channel.fetch_message(reaction.message.id)
-    await remove_reactions(reaction, user, message)
+    await remove_reactions(reaction, user, message, on_message)
 
 @discord_connector.event
 async def on_member_join(member):
