@@ -55,6 +55,7 @@ async def on_reaction_add(reaction, user):
     print(message)
     await update_reactions(reaction, user, message, on_message)
 
+
 @discord_connector.event
 async def on_reaction_remove(reaction, user):
     message = await reaction.message.channel.fetch_message(reaction.message.id)

@@ -20,8 +20,12 @@ async def parse_reactions(reactions):
         reactions_list = reactions.split(', ')
         for reaction_str in reactions_list:
             emoji, count = reaction_str.split(':')
+            match = re.match(r'<a?:?(.+?):\d+>', emoji)
+            if match:
+                emoji = match.group(1)
             reactions_dict[emoji] = int(count)
     return reactions_dict
+
 
 async def update_reactions(reaction, user, message, on_message):
     db = database_connector.connect()
@@ -36,9 +40,10 @@ async def update_reactions(reaction, user, message, on_message):
     reactions_dict = await parse_reactions(result[0])
 
     emoji = str(reaction.emoji)
-    match = re.match(r'<:.+:(.+)>', emoji)
-    if match:
-        emoji = match.group(1)
+    if emoji.startswith('<:'):
+        emoji = emoji.split(':')[1]
+    elif emoji.startswith('<a:'):
+        emoji = emoji.split(':')[1]
     if emoji in reactions_dict:
         reactions_dict[emoji] += 1
     else:
@@ -64,9 +69,10 @@ async def remove_reactions(reaction, user, message, on_message):
     reactions_dict = await parse_reactions(result[0])
 
     emoji = str(reaction.emoji)
-    match = re.match(r'<:.+:(.+)>', emoji)
-    if match:
-        emoji = match.group(1)
+    if emoji.startswith('<:'):
+        emoji = emoji.split(':')[1]
+    elif emoji.startswith('<a:'):
+        emoji = emoji.split(':')[1]
     if emoji in reactions_dict:
         reactions_dict[emoji] -= 1
         if reactions_dict[emoji] <= 0:
