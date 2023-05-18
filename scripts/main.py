@@ -23,14 +23,19 @@ async def on_message(message):
     content = message.content
     if message.stickers:
         sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
-        content = f'{content} {sticker_details}'
+        content = f'{content}\n{sticker_details}'
 
-    content = re.sub(r'<a?:([^:]+):\d+>', r'STICKER: \1 ', content)
+    content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
+
+    if message.attachments:
+        image_urls = ', '.join([f'IMAGE: {attachment.url}' for attachment in message.attachments])
+        content = f'{content}\n{image_urls}'
 
     await database_query(
         "INSERT INTO discord (timestamp, user_id, username, discriminator, nick, message_id, content, channel, ref_id, thread_id, message_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, content, message.channel.name, ref_id, thread_id, message_type)
     )
+
 
 @discord_connector.event
 async def on_message_delete(message):
