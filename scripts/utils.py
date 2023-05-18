@@ -5,6 +5,7 @@ from init import database_connector, discord_connector
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def database_query(query, values=None):
+    print('database_query')
     db = database_connector.connect()
     cursor = db.cursor()
     if values:
@@ -15,6 +16,7 @@ async def database_query(query, values=None):
     db.close()
 
 async def parse_reactions(reactions):
+    print('parse_reactions')
     reactions_dict = {}
     if reactions:
         reactions_list = reactions.split(', ')
@@ -28,6 +30,7 @@ async def parse_reactions(reactions):
 
 
 async def update_reactions(reaction, user, message, on_message):
+    print('update_reactions')
     db = database_connector.connect()
     cursor = db.cursor()
     cursor.execute("SELECT reactions FROM discord WHERE message_id = %s", (message.id,))
@@ -57,6 +60,7 @@ async def update_reactions(reaction, user, message, on_message):
     )
 
 async def remove_reactions(reaction, user, message, on_message):
+    print('remove_reactions')
     db = database_connector.connect()
     cursor = db.cursor()
     cursor.execute("SELECT reactions FROM discord WHERE message_id = %s", (message.id,))

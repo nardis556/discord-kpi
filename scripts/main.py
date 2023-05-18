@@ -1,6 +1,7 @@
 import asyncio
 import discord
 from datetime import datetime
+import traceback
 import re
 from init import discord_connector
 from utils import database_query, update_reactions, remove_reactions
@@ -11,6 +12,7 @@ async def on_ready():
 
 @discord_connector.event
 async def on_message(message):
+    print('on_message')
     if message.author == discord_connector.user:
         return
 
@@ -42,6 +44,7 @@ async def on_message(message):
 
 @discord_connector.event
 async def on_message_delete(message):
+    print('on_message_delete')
     await database_query(
         "UPDATE discord SET deleted = %s WHERE message_id = %s",
         (datetime.now(), message.id)
@@ -49,6 +52,7 @@ async def on_message_delete(message):
 
 @discord_connector.event
 async def on_message_edit(before, after):
+    print('on_message_edit')
     if before.author == discord_connector.user:
         return
 
@@ -59,12 +63,14 @@ async def on_message_edit(before, after):
 
 @discord_connector.event
 async def on_reaction_add(reaction, user):
+    print('on_reaction_add')
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
 
 
 @discord_connector.event
 async def on_reaction_remove(reaction, user):
+    print('on_reaction_remove')
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await remove_reactions(reaction, user, message, on_message)
 
@@ -77,6 +83,7 @@ async def on_member_join(member):
 
 @discord_connector.event
 async def on_member_update(before, after):
+    print('on_member_update')
     if before.name != after.name:
         await database_query(
             "UPDATE members SET usernames = CONCAT(IFNULL(usernames,''), %s) WHERE id = %s",
@@ -88,5 +95,6 @@ if __name__ == "__main__":
         try:
             discord_connector.run_bot()
         except discord.ConnectionClosed:
+            traceback.print_exc()
             continue
         break
