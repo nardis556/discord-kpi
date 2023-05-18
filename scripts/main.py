@@ -27,13 +27,14 @@ async def on_message(message):
         content = content.replace(f'<:{emoji_name}:', f'STICKER: {emoji_name}')
 
     if message.stickers:
-        sticker_details = ', '.join([f'Sticker: {sticker.name}, ID: {sticker.id}' for sticker in message.stickers])
-        content = f'{content} ({sticker_details})'
+        sticker_names = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
+        content = f'{content} ({sticker_names})'
 
     await database_query(
         "INSERT INTO discord (timestamp, user_id, username, discriminator, nick, message_id, content, channel, ref_id, thread_id, message_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, content, message.channel.name, ref_id, thread_id, message_type)
     )
+
 
 
 @discord_connector.event
