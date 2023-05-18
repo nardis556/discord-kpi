@@ -52,7 +52,6 @@ async def on_message_edit(before, after):
 @discord_connector.event
 async def on_reaction_add(reaction, user):
     message = await reaction.message.channel.fetch_message(reaction.message.id)
-    print(message)
     await update_reactions(reaction, user, message, on_message)
 
 
