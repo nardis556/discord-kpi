@@ -1,5 +1,6 @@
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential
+import re
 from init import database_connector, discord_connector
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
@@ -35,6 +36,9 @@ async def update_reactions(reaction, user, message, on_message):
     reactions_dict = await parse_reactions(result[0])
 
     emoji = str(reaction.emoji)
+    match = re.match(r'<:.+:(.+)>', emoji)
+    if match:
+        emoji = match.group(1)
     if emoji in reactions_dict:
         reactions_dict[emoji] += 1
     else:
@@ -60,6 +64,9 @@ async def remove_reactions(reaction, user, message, on_message):
     reactions_dict = await parse_reactions(result[0])
 
     emoji = str(reaction.emoji)
+    match = re.match(r'<:.+:(.+)>', emoji)
+    if match:
+        emoji = match.group(1)
     if emoji in reactions_dict:
         reactions_dict[emoji] -= 1
         if reactions_dict[emoji] <= 0:
