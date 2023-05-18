@@ -29,7 +29,10 @@ async def on_message(message):
 
     if message.attachments:
         image_urls = ', '.join([f'IMAGE: {attachment.url}' for attachment in message.attachments])
-        content = f'{content}\n{image_urls}'
+        if not content:
+            content = f'{image_urls}'
+        else:
+            content = f'{content}\n{image_urls}'
 
     await database_query(
         "INSERT INTO discord (timestamp, user_id, username, discriminator, nick, message_id, content, channel, ref_id, thread_id, message_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
