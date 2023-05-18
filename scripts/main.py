@@ -19,10 +19,16 @@ async def on_message(message):
 
     nick = message.author.nick if isinstance(message.author, discord.Member) else None
 
+    content = message.content
+    if message.stickers:
+        sticker_details = ', '.join([f'Sticker: {sticker.name}, ID: {sticker.id}' for sticker in message.stickers])
+        content = f'{content} ({sticker_details})'
+
     await database_query(
         "INSERT INTO discord (timestamp, user_id, username, discriminator, nick, message_id, content, channel, ref_id, thread_id, message_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, message.content, message.channel.name, ref_id, thread_id, message_type)
+        (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, content, message.channel.name, ref_id, thread_id, message_type)
     )
+
 
 @discord_connector.event
 async def on_message_delete(message):
