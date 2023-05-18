@@ -1,6 +1,7 @@
 import asyncio
 import discord
 from datetime import datetime
+import re
 from init import discord_connector
 from utils import database_query, update_reactions, remove_reactions
 
@@ -20,6 +21,11 @@ async def on_message(message):
     nick = message.author.nick if isinstance(message.author, discord.Member) else None
 
     content = message.content
+
+    custom_emojis = re.findall(r'<:(.+?):\d+>', content)
+    for emoji_name in custom_emojis:
+        content = content.replace(f'<:{emoji_name}:', f'STICKER: {emoji_name}')
+
     if message.stickers:
         sticker_details = ', '.join([f'Sticker: {sticker.name}, ID: {sticker.id}' for sticker in message.stickers])
         content = f'{content} ({sticker_details})'
