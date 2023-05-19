@@ -3,8 +3,8 @@ import discord
 from datetime import datetime
 import traceback
 import re
-from init import discord_connector
-from utils import database_query, update_reactions, remove_reactions
+from init import discord_connector, database_connector
+from utils import database_query, update_reactions, remove_reactions, parse_content
 
 @discord_connector.event
 async def on_ready():
@@ -12,7 +12,7 @@ async def on_ready():
 
 @discord_connector.event
 async def on_message(message):
-    print('on_message')
+    # print('on_message')
     if message.author == discord_connector.user:
         return
 
@@ -22,7 +22,7 @@ async def on_message(message):
 
     nick = message.author.nick if isinstance(message.author, discord.Member) else None
 
-    content = message.content
+    content = await parse_content(message, discord_connector)
     if message.stickers:
         sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
         content = f'{content}\n{sticker_details}'
@@ -44,7 +44,7 @@ async def on_message(message):
 
 @discord_connector.event
 async def on_message_delete(message):
-    print('on_message_delete')
+    # print('on_message_delete')
     await database_query(
         "UPDATE discord SET deleted = %s WHERE message_id = %s",
         (datetime.now(), message.id)
@@ -52,43 +52,53 @@ async def on_message_delete(message):
 
 @discord_connector.event
 async def on_message_edit(before, after):
-    print('on_message_edit')
+    # print('on_message_edit')
     if before.author == discord_connector.user:
         return
+
+    db = database_connector.connect()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM discord WHERE message_id = %s", (before.id,))
+    result = cursor.fetchone()
+    db.close()
+
+    if not result:
+        await on_message(after)
 
     await database_query(
         "UPDATE discord SET content_edit = CONCAT(IFNULL(content_edit,''), %s) WHERE message_id = %s",
         (f"{datetime.now()}: {after.content}\n", before.id)
     )
 
+
 @discord_connector.event
 async def on_reaction_add(reaction, user):
-    print('on_reaction_add')
+    # print('on_reaction_add')
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
 
 
 @discord_connector.event
 async def on_reaction_remove(reaction, user):
-    print('on_reaction_remove')
+    # print('on_reaction_remove')
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await remove_reactions(reaction, user, message, on_message)
 
-@discord_connector.event
-async def on_member_join(member):
-    await database_query(
-        "INSERT INTO members (id, name, discriminator, usernames) VALUES (%s, %s, %s, %s)",
-        (member.id, member.name, member.discriminator, member.name)
-    )
+# @discord_connector.event fix add task
+# async def on_member_join(member):
+#     await database_query(
+#         "INSERT INTO members (id, name, discriminator, usernames) VALUES (%s, %s, %s, %s)",
+#         (member.id, member.name, member.discriminator, member.name)
+#     )
 
-@discord_connector.event
-async def on_member_update(before, after):
-    print('on_member_update')
-    if before.name != after.name:
-        await database_query(
-            "UPDATE members SET usernames = CONCAT(IFNULL(usernames,''), %s) WHERE id = %s",
-            (f", {after.name}", after.id)
-        )
+# @discord_connector.event
+# async def on_member_update(before, after):
+#     # print('on_member_update')
+#     if before.name != after.name:
+#         await database_query(
+#             "UPDATE members SET usernames = CONCAT(IFNULL(usernames,''), %s) WHERE id = %s",
+#             (f", {after.name}", after.id)
+#         )
 
 if __name__ == "__main__":
     while True:

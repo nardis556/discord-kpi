@@ -1,11 +1,13 @@
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential
+import asyncio
 import re
 from init import database_connector, discord_connector
 
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def database_query(query, values=None):
-    print('database_query')
+    # print('database_query')
     db = database_connector.connect()
     cursor = db.cursor()
     if values:
@@ -15,8 +17,9 @@ async def database_query(query, values=None):
     db.commit()
     db.close()
 
+
 async def parse_reactions(reactions):
-    print('parse_reactions')
+    # print('parse_reactions')
     reactions_dict = {}
     if reactions:
         reactions_list = reactions.split(', ')
@@ -29,8 +32,33 @@ async def parse_reactions(reactions):
     return reactions_dict
 
 
+async def parse_content(message, discord_connector):
+    # print('parse_content')
+    content = message.content
+    user_mentions = re.findall(r'<@(\d+)>', content)
+    for user_id in user_mentions:
+        user = await discord_connector.fetch_user(int(user_id))
+        content = content.replace(f'<@{user_id}>', f'@{user.name}#{user.discriminator}')
+
+    if message.stickers:
+        sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
+        content = f'{content}\n{sticker_details}'
+
+    content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
+
+    if message.attachments:
+        image_urls = ', '.join([f'IMAGE: {attachment.url}' for attachment in message.attachments])
+        if not content:
+            content = f'{image_urls}'
+        else:
+            content = f'{content}\n{image_urls}'
+
+    return content
+
+
+
 async def update_reactions(reaction, user, message, on_message):
-    print('update_reactions')
+    # print('update_reactions')
     db = database_connector.connect()
     cursor = db.cursor()
     cursor.execute("SELECT reactions FROM discord WHERE message_id = %s", (message.id,))
@@ -60,7 +88,7 @@ async def update_reactions(reaction, user, message, on_message):
     )
 
 async def remove_reactions(reaction, user, message, on_message):
-    print('remove_reactions')
+    # print('remove_reactions')
     db = database_connector.connect()
     cursor = db.cursor()
     cursor.execute("SELECT reactions FROM discord WHERE message_id = %s", (message.id,))
