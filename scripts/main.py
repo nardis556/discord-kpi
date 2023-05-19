@@ -84,12 +84,14 @@ async def on_reaction_remove(reaction, user):
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await remove_reactions(reaction, user, message, on_message)
 
+
 # @discord_connector.event fix add task
 # async def on_member_join(member):
 #     await database_query(
 #         "INSERT INTO members (id, name, discriminator, usernames) VALUES (%s, %s, %s, %s)",
 #         (member.id, member.name, member.discriminator, member.name)
 #     )
+
 
 # @discord_connector.event
 # async def on_member_update(before, after):
@@ -99,6 +101,7 @@ async def on_reaction_remove(reaction, user):
 #             "UPDATE members SET usernames = CONCAT(IFNULL(usernames,''), %s) WHERE id = %s",
 #             (f", {after.name}", after.id)
 #         )
+
 
 if __name__ == "__main__":
     while True:
