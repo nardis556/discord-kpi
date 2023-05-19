@@ -45,9 +45,9 @@ async def parse_content(message, discord_connector):
         user = await discord_connector.fetch_user(int(user_id))
         content = content.replace(f'<@{user_id}>', f'@{user.name}#{user.discriminator}')
 
-    if message.stickers:
-        sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
-        content = f'{content}\n{sticker_details}'
+    # if message.stickers:
+    #     sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
+    #     content = f'{content}\n{sticker_details}'
 
     content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
 

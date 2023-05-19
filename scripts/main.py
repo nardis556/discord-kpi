@@ -17,7 +17,7 @@ async def on_ready():
                 if channel.permissions_for(guild.me).read_messages:
                     asyncio.create_task(fetch_recent_messages(channel))
 
-                    
+
 
 async def fetch_recent_messages(channel):
     now = datetime.utcnow()
