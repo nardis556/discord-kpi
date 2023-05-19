@@ -1,2 +1,6 @@
 config.py
 scripts/*pycache*
+scripts/test*
+scripts/bak*
+tables/*test
+__pycache__
