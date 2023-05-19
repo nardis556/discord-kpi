@@ -1,8 +1,10 @@
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential
 import asyncio
+import discord
 import re
 from init import database_connector, discord_connector
+
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
@@ -18,6 +20,8 @@ async def database_query(query, values=None):
     db.close()
 
 
+
+
 async def parse_reactions(reactions):
     # print('parse_reactions')
     reactions_dict = {}
@@ -30,6 +34,7 @@ async def parse_reactions(reactions):
                 emoji = match.group(1)
             reactions_dict[emoji] = int(count)
     return reactions_dict
+
 
 
 async def parse_content(message, discord_connector):
@@ -58,7 +63,6 @@ async def parse_content(message, discord_connector):
 
 
 async def update_reactions(reaction, user, message, on_message):
-    # print('update_reactions')
     db = database_connector.connect()
     cursor = db.cursor()
     cursor.execute("SELECT reactions FROM discord WHERE message_id = %s", (message.id,))
@@ -68,53 +72,51 @@ async def update_reactions(reaction, user, message, on_message):
     if not result and message.author != discord_connector.user:
         await on_message(message)
 
-    reactions_dict = await parse_reactions(result[0])
+    updated_reactions = {}
 
-    emoji = str(reaction.emoji)
-    if emoji.startswith('<:'):
-        emoji = emoji.split(':')[1]
-    elif emoji.startswith('<a:'):
-        emoji = emoji.split(':')[1]
-    if emoji in reactions_dict:
-        reactions_dict[emoji] += 1
-    else:
-        reactions_dict[emoji] = 1
+    reactions = message.reactions
 
-    reactions_str = ', '.join(f'{emoji}:{count}' for emoji, count in reactions_dict.items())
+    for reaction in reactions:
+        emoji = str(reaction.emoji)
+        if emoji.startswith('<:'):
+            emoji = emoji.split(':')[1]
+        elif emoji.startswith('<a:'):
+            emoji = emoji.split(':')[1]
+        updated_reactions[emoji] = reaction.count
+
+    updated_reactions_str = ', '.join(f'{emoji}:{count}' for emoji, count in updated_reactions.items())
 
     await database_query(
         "UPDATE discord SET reactions = %s WHERE message_id = %s",
-        (reactions_str, message.id)
+        (updated_reactions_str, message.id)
     )
 
-async def remove_reactions(reaction, user, message, on_message):
-    # print('remove_reactions')
+
+
+async def update_message(message):
     db = database_connector.connect()
     cursor = db.cursor()
-    cursor.execute("SELECT reactions FROM discord WHERE message_id = %s", (message.id,))
+    cursor.execute("SELECT * FROM discord WHERE message_id = %s", (message.id,))
     result = cursor.fetchone()
     db.close()
 
-    if not result and message.author != discord_connector.user:
-        await on_message(message)
+    nick = message.author.nick if isinstance(message.author, discord.Member) else None
 
-    reactions_dict = await parse_reactions(result[0])
+    content = await parse_content(message, discord_connector)
+    if message.stickers:
+        sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
+        content = f'{content}\n{sticker_details}'
 
-    emoji = str(reaction.emoji)
-    if emoji.startswith('<:'):
-        emoji = emoji.split(':')[1]
-    elif emoji.startswith('<a:'):
-        emoji = emoji.split(':')[1]
-    if emoji in reactions_dict:
-        reactions_dict[emoji] -= 1
-        if reactions_dict[emoji] <= 0:
-            del reactions_dict[emoji]
-    else:
-        return
+    content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
 
-    reactions_str = ', '.join(f'{emoji}:{count}' for emoji, count in reactions_dict.items())
+    if message.attachments:
+        image_urls = ', '.join([f'IMAGE: {attachment.url}' for attachment in message.attachments])
+        if not content:
+            content = f'{image_urls}'
+        else:
+            content = f'{content}\n{image_urls}'
 
     await database_query(
-        "UPDATE discord SET reactions = %s WHERE message_id = %s",
-        (reactions_str, message.id)
+        "UPDATE discord SET content = %s WHERE message_id = %s",
+        (content, message.id)
     )

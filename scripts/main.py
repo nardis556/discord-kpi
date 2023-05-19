@@ -1,14 +1,66 @@
 import asyncio
 import discord
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 import re
 from init import discord_connector, database_connector
-from utils import database_query, update_reactions, remove_reactions, parse_content
+from utils import database_query, update_reactions, parse_content
+
+
 
 @discord_connector.event
 async def on_ready():
     print(f'{discord_connector.user.name} connected')
+    for guild in discord_connector.guilds:
+        for channel in guild.channels:
+            if isinstance(channel, discord.TextChannel):
+                if channel.permissions_for(guild.me).read_messages:
+                    await fetch_recent_messages(channel)
+
+
+
+async def fetch_recent_messages(channel):
+    now = datetime.utcnow()
+    limit_time = now - timedelta(hours=1)
+
+    async for message in channel.history(limit=None, after=limit_time):
+        db = database_connector.connect()
+        cursor = db.cursor()
+        cursor.execute("SELECT * FROM discord WHERE message_id = %s", (message.id,))
+        result = cursor.fetchone()
+        db.close()
+
+        if not result:
+            await on_message(message)
+        else:
+            await on_message_edit(result[2], message)
+
+        for reaction in message.reactions:
+            user = type('User', (object,), {'id': 'unknown'})
+            await update_reactions(reaction, user, message, on_message)
+
+
+
+@discord_connector.event
+async def on_message_edit(before_content, after_message):
+    if after_message.author == discord_connector.user:
+        return
+
+    db = database_connector.connect()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM discord WHERE message_id = %s", (after_message.id,))
+    result = cursor.fetchone()
+    db.close()
+
+    if not result:
+        await on_message(after_message)
+
+    await database_query(
+        "UPDATE discord SET content_edit = CONCAT(IFNULL(content_edit,''), %s) WHERE message_id = %s",
+        (f"{datetime.now()}: {after_message.content}\n", after_message.id)
+    )
+
+
 
 @discord_connector.event
 async def on_message(message):
@@ -42,6 +94,7 @@ async def on_message(message):
     )
 
 
+
 @discord_connector.event
 async def on_message_delete(message):
     # print('on_message_delete')
@@ -51,38 +104,18 @@ async def on_message_delete(message):
     )
 
 @discord_connector.event
-async def on_message_edit(before, after):
-    # print('on_message_edit')
-    if before.author == discord_connector.user:
-        return
-
-    db = database_connector.connect()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM discord WHERE message_id = %s", (before.id,))
-    result = cursor.fetchone()
-    db.close()
-
-    if not result:
-        await on_message(after)
-
-    await database_query(
-        "UPDATE discord SET content_edit = CONCAT(IFNULL(content_edit,''), %s) WHERE message_id = %s",
-        (f"{datetime.now()}: {after.content}\n", before.id)
-    )
-
-
-@discord_connector.event
 async def on_reaction_add(reaction, user):
     # print('on_reaction_add')
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
 
 
+
 @discord_connector.event
 async def on_reaction_remove(reaction, user):
     # print('on_reaction_remove')
     message = await reaction.message.channel.fetch_message(reaction.message.id)
-    await remove_reactions(reaction, user, message, on_message)
+    await update_reactions(reaction, user, message, on_message)
 
 
 # @discord_connector.event fix add task
