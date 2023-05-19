@@ -75,9 +75,6 @@ async def on_message(message):
     nick = message.author.nick if isinstance(message.author, discord.Member) else None
 
     content = await parse_content(message, discord_connector)
-    # if message.stickers:
-    #     sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
-    #     content = f'{content}\n{sticker_details}'
 
     content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
 
