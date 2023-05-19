@@ -17,9 +17,6 @@ async def on_ready():
                 if channel.permissions_for(guild.me).read_messages:
                     await fetch_recent_messages(channel)
 
-@discord_connector.event
-async def on_disconnect
-
 
 
 async def fetch_recent_messages(channel):
