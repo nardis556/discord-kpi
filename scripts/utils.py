@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from tenacity import retry, stop_after_attempt, wait_exponential
 import asyncio
 import discord
@@ -8,7 +8,7 @@ from init import database_connector, discord_connector
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-async def database_query(query, values=None):
+async def database_query(query, values=None, fetch=False):
     # print('database_query')
     db = database_connector.connect()
     cursor = db.cursor()
@@ -16,25 +16,14 @@ async def database_query(query, values=None):
         cursor.execute(query, values)
     else:
         cursor.execute(query)
+
+    result = None
+    if fetch:
+        result = cursor.fetchone()
+
     db.commit()
     db.close()
-
-
-
-
-async def parse_reactions(reactions):
-    # print('parse_reactions')
-    reactions_dict = {}
-    if reactions:
-        reactions_list = reactions.split(', ')
-        for reaction_str in reactions_list:
-            emoji, count = reaction_str.split(':')
-            match = re.match(r'<a?:?(.+?):\d+>', emoji)
-            if match:
-                emoji = match.group(1)
-            reactions_dict[emoji] = int(count)
-    return reactions_dict
-
+    return result
 
 
 async def parse_content(message, discord_connector):
@@ -45,11 +34,18 @@ async def parse_content(message, discord_connector):
         user = await discord_connector.fetch_user(int(user_id))
         content = content.replace(f'<@{user_id}>', f'@{user.name}#{user.discriminator}')
 
+    emoji_matches = re.findall(r'<a?:([^:]+):\d+>', content)
+    if emoji_matches:
+        for match in emoji_matches:
+            content = content.replace(f'<:{match}>', f'EMOJI: {match}')
+            content = content.replace(f'<a:{match}>', f'EMOJI: {match}')
+    
     if message.stickers:
         sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
-        content = f'{content}\n{sticker_details}'
-
-    content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
+        if not content:
+            content = f'{sticker_details}'
+        else:
+            content = f'{content}\n{sticker_details}'
 
     if message.attachments:
         image_urls = ', '.join([f'IMAGE: {attachment.url}' for attachment in message.attachments])
@@ -59,6 +55,7 @@ async def parse_content(message, discord_connector):
             content = f'{content}\n{image_urls}'
 
     return content
+
 
 
 
@@ -103,6 +100,7 @@ async def update_message(message):
     nick = message.author.nick if isinstance(message.author, discord.Member) else None
 
     content = await parse_content(message, discord_connector)
+    
     if message.stickers:
         sticker_details = ', '.join([f'STICKER: {sticker.name}' for sticker in message.stickers])
         content = f'{content}\n{sticker_details}'
@@ -120,3 +118,14 @@ async def update_message(message):
         "UPDATE discord SET content = %s WHERE message_id = %s",
         (content, message.id)
     )
+
+async def message_id_selector(message):
+    db = database_connector.connect()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM discord WHERE message_id = %s", (message.id,))
+    result = cursor.fetchone()
+    db.close()
+    return result
+
+def get_type_of_message(ref_id, thread_id):
+    return 'replying_in_thread' if thread_id and ref_id else ('thread' if thread_id else ('reply' if ref_id else 'original'))

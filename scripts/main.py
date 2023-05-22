@@ -4,8 +4,7 @@ from datetime import datetime, timedelta
 import traceback
 import re
 from init import discord_connector, database_connector
-from utils import database_query, update_reactions, parse_content
-
+from utils import database_query, update_reactions, parse_content, message_id_selector, get_type_of_message
 
 
 @discord_connector.event
@@ -15,20 +14,16 @@ async def on_ready():
         for channel in guild.channels:
             if isinstance(channel, discord.TextChannel):
                 if channel.permissions_for(guild.me).read_messages:
-                    asyncio.create_task(fetch_recent_messages(channel))
-
+                    await fetch_recent_messages(channel)
 
 
 async def fetch_recent_messages(channel):
     now = datetime.utcnow()
-    limit_time = now - timedelta(hours=1)
+    limit_time = now - timedelta(hours=2)
 
     async for message in channel.history(limit=None, after=limit_time):
-        db = database_connector.connect()
-        cursor = db.cursor()
-        cursor.execute("SELECT * FROM discord WHERE message_id = %s", (message.id,))
-        result = cursor.fetchone()
-        db.close()
+
+        result = await message_id_selector(message)
 
         if not result:
             await on_message(message)
@@ -40,37 +35,31 @@ async def fetch_recent_messages(channel):
             await update_reactions(reaction, user, message, on_message)
 
 
-
 @discord_connector.event
 async def on_message_edit(before_content, after_message):
     if after_message.author == discord_connector.user:
         return
+    
+    result = await message_id_selector(after_message)
 
-    db = database_connector.connect()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM discord WHERE message_id = %s", (after_message.id,))
-    result = cursor.fetchone()
-    db.close()
-
-    if not result:
-        await on_message(after_message)
+    if not result or result[2] == after_message.content:
+        return
 
     await database_query(
         "UPDATE discord SET content_edit = CONCAT(IFNULL(content_edit,''), %s) WHERE message_id = %s",
-        (f"{datetime.now()}: {after_message.content}\n", after_message.id)
+        (f"{after_message.content}\n", after_message.id)
     )
-
 
 
 @discord_connector.event
 async def on_message(message):
-    # print('on_message')
     if message.author == discord_connector.user:
         return
 
     ref_id = message.reference.message_id if message.reference else None
     thread_id = message.channel.id if isinstance(message.channel, discord.Thread) else None
-    message_type = 'replying_in_thread' if thread_id and ref_id else ('thread' if thread_id else ('reply' if ref_id else 'original'))
+
+    message_type = get_type_of_message(ref_id, thread_id)
 
     nick = message.author.nick if isinstance(message.author, discord.Member) else None
 
@@ -78,39 +67,28 @@ async def on_message(message):
 
     content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
 
-    if message.attachments:
-        image_urls = ', '.join([f'IMAGE: {attachment.url}' for attachment in message.attachments])
-        if not content:
-            content = f'{image_urls}'
-        else:
-            content = f'{content}\n{image_urls}'
-
     await database_query(
         "INSERT INTO discord (timestamp, user_id, username, discriminator, nick, message_id, content, channel, ref_id, thread_id, message_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, content, message.channel.name, ref_id, thread_id, message_type)
     )
 
 
-
 @discord_connector.event
 async def on_message_delete(message):
-    # print('on_message_delete')
     await database_query(
         "UPDATE discord SET deleted = %s WHERE message_id = %s",
         (datetime.now(), message.id)
     )
 
+
 @discord_connector.event
 async def on_reaction_add(reaction, user):
-    # print('on_reaction_add')
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
 
 
-
 @discord_connector.event
 async def on_reaction_remove(reaction, user):
-    # print('on_reaction_remove')
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
 
