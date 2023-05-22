@@ -50,7 +50,6 @@ async def on_message_edit(before_content, after_message):
         (f"{after_message.content}\n", after_message.id)
     )
 
-
 @discord_connector.event
 async def on_message(message):
     if message.author == discord_connector.user:
