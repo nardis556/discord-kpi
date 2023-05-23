@@ -15,6 +15,7 @@ async def on_ready():
             if isinstance(channel, discord.TextChannel):
                 if channel.permissions_for(guild.me).read_messages:
                     await fetch_recent_messages(channel)
+                    await add_all_members()
 
 
 async def fetch_recent_messages(channel):
@@ -92,22 +93,51 @@ async def on_reaction_remove(reaction, user):
     await update_reactions(reaction, user, message, on_message)
 
 
-# @discord_connector.event fix add task
-# async def on_member_join(member):
-#     await database_query(
-#         "INSERT INTO members (id, name, discriminator, usernames) VALUES (%s, %s, %s, %s)",
-#         (member.id, member.name, member.discriminator, member.name)
-#     )
+@discord_connector.event
+async def on_member_join(member):
+    timestamp = datetime.now()
+    user_info = f"{member.id}: {member.name} #{member.discriminator}"
+    in_server = True
+    await database_query(
+        "INSERT INTO followers (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
+        (timestamp, user_info, in_server)
+    )
+
+@discord_connector.event
+async def on_member_remove(member):
+    timestamp = datetime.now()
+    user_info = f"{member.id}: {member.name} #{member.discriminator}"
+    in_server = False
+    await database_query(
+        "UPDATE followers SET timestamp = %s, in_server = %s WHERE user_info = %s",
+        (timestamp, in_server, user_info)
+    )
 
 
-# @discord_connector.event
-# async def on_member_update(before, after):
-#     # print('on_member_update')
-#     if before.name != after.name:
-#         await database_query(
-#             "UPDATE members SET usernames = CONCAT(IFNULL(usernames,''), %s) WHERE id = %s",
-#             (f", {after.name}", after.id)
-#         )
+async def add_all_members():
+    for guild in discord_connector.guilds:
+        last_member = await database_query(
+            "SELECT user_info FROM followers ORDER BY user_info DESC LIMIT 1",
+            fetch=True
+        )
+        last_member_id = None
+        if last_member:
+            last_member_id = int(last_member[0].split(":")[0])
+
+        goat_role = discord.utils.get(guild.roles, name='GOAT')
+
+        async for member in guild.fetch_members(limit=1000):
+            if last_member_id and member.id <= last_member_id:
+                continue
+
+            if goat_role in member.roles:
+                timestamp = datetime.now()
+                user_info = f"{member.id}: {member.name} #{member.discriminator}"
+                in_server = True
+                await database_query(
+                    "INSERT INTO followers (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
+                    (timestamp, user_info, in_server)
+                )
 
 
 if __name__ == "__main__":
