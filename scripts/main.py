@@ -15,7 +15,7 @@ async def on_ready():
             if isinstance(channel, discord.TextChannel):
                 if channel.permissions_for(guild.me).read_messages:
                     await fetch_recent_messages(channel)
-                    await add_all_members()
+                    # await add_all_members()
 
 
 async def fetch_recent_messages(channel):
@@ -99,7 +99,7 @@ async def on_member_join(member):
     user_info = f"{member.id}: {member.name} #{member.discriminator}"
     in_server = True
     await database_query(
-        "INSERT INTO followers (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
+        "INSERT INTO members (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
         (timestamp, user_info, in_server)
     )
 
@@ -109,15 +109,14 @@ async def on_member_remove(member):
     user_info = f"{member.id}: {member.name} #{member.discriminator}"
     in_server = False
     await database_query(
-        "UPDATE followers SET timestamp = %s, in_server = %s WHERE user_info = %s",
+        "UPDATE members SET timestamp = %s, in_server = %s WHERE user_info = %s",
         (timestamp, in_server, user_info)
     )
-
 
 async def add_all_members():
     for guild in discord_connector.guilds:
         last_member = await database_query(
-            "SELECT user_info FROM followers ORDER BY user_info DESC LIMIT 1",
+            "SELECT user_info FROM members ORDER BY user_info DESC LIMIT 1",
             fetch=True
         )
         last_member_id = None
@@ -136,17 +135,15 @@ async def add_all_members():
             in_server = True
 
             existing_user = await database_query(
-                "SELECT * FROM followers WHERE user_info = %s",
+                "SELECT * FROM members WHERE user_info = %s",
                 (user_info,),
                 fetch=True
             )
             if not existing_user:
                 await database_query(
-                    "INSERT INTO followers (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
+                    "INSERT INTO members (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
                     (timestamp, user_info, in_server)
                 )
-
-
 
 if __name__ == "__main__":
     while True:
