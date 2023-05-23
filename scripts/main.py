@@ -134,10 +134,18 @@ async def add_all_members():
                 timestamp = datetime.now()
                 user_info = f"{member.id}: {member.name} #{member.discriminator}"
                 in_server = True
-                await database_query(
-                    "INSERT INTO followers (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
-                    (timestamp, user_info, in_server)
+
+                existing_user = await database_query(
+                    "SELECT * FROM followers WHERE user_info = %s",
+                    (user_info,),
+                    fetch=True
                 )
+                if not existing_user:
+                    await database_query(
+                        "INSERT INTO followers (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
+                        (timestamp, user_info, in_server)
+                    )
+
 
 
 if __name__ == "__main__":
