@@ -124,27 +124,27 @@ async def add_all_members():
         if last_member:
             last_member_id = int(last_member[0].split(":")[0])
 
-        goat_role = discord.utils.get(guild.roles, name='GOAT')
+        # goat_role = discord.utils.get(guild.roles, name='GOAT')
 
         async for member in guild.fetch_members(limit=1000):
             if last_member_id and member.id <= last_member_id:
                 continue
 
-            if goat_role in member.roles:
-                timestamp = datetime.now()
-                user_info = f"{member.id}: {member.name} #{member.discriminator}"
-                in_server = True
+            # if goat_role in member.roles:
+            timestamp = datetime.now()
+            user_info = f"{member.id}: {member.name} #{member.discriminator}"
+            in_server = True
 
-                existing_user = await database_query(
-                    "SELECT * FROM followers WHERE user_info = %s",
-                    (user_info,),
-                    fetch=True
+            existing_user = await database_query(
+                "SELECT * FROM followers WHERE user_info = %s",
+                (user_info,),
+                fetch=True
+            )
+            if not existing_user:
+                await database_query(
+                    "INSERT INTO followers (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
+                    (timestamp, user_info, in_server)
                 )
-                if not existing_user:
-                    await database_query(
-                        "INSERT INTO followers (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
-                        (timestamp, user_info, in_server)
-                    )
 
 
 
