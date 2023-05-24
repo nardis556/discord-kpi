@@ -113,37 +113,37 @@ async def on_member_remove(member):
         (timestamp, in_server, user_info)
     )
 
-async def add_all_members():
-    for guild in discord_connector.guilds:
-        last_member = await database_query(
-            "SELECT user_info FROM members ORDER BY user_info DESC LIMIT 1",
-            fetch=True
-        )
-        last_member_id = None
-        if last_member:
-            last_member_id = int(last_member[0].split(":")[0])
+# async def add_all_members():
+#     for guild in discord_connector.guilds:
+#         last_member = await database_query(
+#             "SELECT user_info FROM members ORDER BY user_info DESC LIMIT 1",
+#             fetch=True
+#         )
+#         last_member_id = None
+#         if last_member:
+#             last_member_id = int(last_member[0].split(":")[0])
 
-        # goat_role = discord.utils.get(guild.roles, name='GOAT')
+#         # goat_role = discord.utils.get(guild.roles, name='GOAT')
 
-        async for member in guild.fetch_members(limit=1000):
-            if last_member_id and member.id <= last_member_id:
-                continue
+#         async for member in guild.fetch_members(limit=1000):
+#             if last_member_id and member.id <= last_member_id:
+#                 continue
 
-            # if goat_role in member.roles:
-            timestamp = datetime.now()
-            user_info = f"{member.id}: {member.name} #{member.discriminator}"
-            in_server = True
+#             # if goat_role in member.roles:
+#             timestamp = datetime.now()
+#             user_info = f"{member.id}: {member.name} #{member.discriminator}"
+#             in_server = True
 
-            existing_user = await database_query(
-                "SELECT * FROM members WHERE user_info = %s",
-                (user_info,),
-                fetch=True
-            )
-            if not existing_user:
-                await database_query(
-                    "INSERT INTO members (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
-                    (timestamp, user_info, in_server)
-                )
+#             existing_user = await database_query(
+#                 "SELECT * FROM members WHERE user_info = %s",
+#                 (user_info,),
+#                 fetch=True
+#             )
+#             if not existing_user:
+#                 await database_query(
+#                     "INSERT INTO members (timestamp, user_info, in_server) VALUES (%s, %s, %s)",
+#                     (timestamp, user_info, in_server)
+#                 )
 
 if __name__ == "__main__":
     while True:
