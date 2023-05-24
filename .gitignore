@@ -4,3 +4,6 @@ scripts/test*
 scripts/bak*
 tables/*test
 __pycache__
+cron/check*
+cron/daily*
+cron/hourly*
