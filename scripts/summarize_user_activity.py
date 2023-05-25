@@ -33,23 +33,39 @@ def update_summaries(interval):
         start_date = start_of_month(start_date)
         group_by_clause = "DATE_FORMAT(timestamp, '%Y-%m-01')"
 
-    query = f"""
-        INSERT INTO summary_{interval} (date, user_info, channel, posts, reactions)
+    select_query = f"""
         SELECT 
             {group_by_clause} as date,
             CONCAT(user_id, ': ', username, '#', discriminator) as user_info,
             channel,
             COUNT(message_id) as posts,
-            SUM((LENGTH(reactions) - LENGTH(REPLACE(reactions, ':', '')))) as reactions
+            GROUP_CONCAT(reactions) as reactions_group
         FROM discord
         WHERE timestamp BETWEEN '{start_date}' AND '{end_date}'
         GROUP BY {group_by_clause}, CONCAT(user_id, ': ', username, '#', discriminator), channel
-        ON DUPLICATE KEY UPDATE
-        posts = VALUES(posts),
-        reactions = VALUES(reactions)
     """
 
-    cursor.execute(query)
+    cursor.execute(select_query)
+
+    records = cursor.fetchall()
+
+    for record in records:
+        date, user_info, channel, posts, reactions_group = record
+        reactions_sum = 0
+        if reactions_group is not None:
+            reactions_group = reactions_group.split(',')
+            for reaction in reactions_group:
+                if ':' in reaction:
+                    reactions_sum += int(reaction.split(':')[1])
+
+        update_query = f"""
+            INSERT INTO summary_{interval} (date, user_info, channel, posts, reactions)
+            VALUES (%s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+            posts = VALUES(posts),
+            reactions = VALUES(reactions)
+        """
+        cursor.execute(update_query, (date, user_info, channel, posts, reactions_sum))
 
     db.commit()
     cursor.close()

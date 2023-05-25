@@ -3,6 +3,7 @@ from datetime import datetime
 from utils import database_query
 import discord
 import asyncio
+import sys
 
 async def gather_server_metrics():
     for guild in discord_connector.guilds:
@@ -34,4 +35,4 @@ if __name__ == "__main__":
     except discord.ConnectionClosed:
         print("connection closed")
     except asyncio.CancelledError:
-        print("cancelled error")
+        sys.exit()

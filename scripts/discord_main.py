@@ -17,6 +17,15 @@ async def on_ready():
                     await fetch_recent_messages(channel)
                     # await add_all_members()
 
+@discord_connector.event
+async def on_resumed():
+    print(f'{discord_connector.user.name} reconnected')
+    for guild in discord_connector.guilds:
+        for channel in guild.channels:
+            if isinstance(channel, discord.TextChannel):
+                if channel.permissions_for(guild.me).read_messages:
+                    await fetch_recent_messages(channel)
+
 
 async def fetch_recent_messages(channel):
     now = datetime.utcnow()
