@@ -3,9 +3,36 @@ import discord
 from datetime import datetime, timedelta
 import traceback
 import re
-from init import discord_connector, database_connector, message_cache
+from init import discord_connector, database_connector
 from utils import database_query, update_reactions, parse_content, message_id_selector, get_type_of_message
 
+class CustomCache:
+    def __init__(self, size=10000):
+        self.size = size
+        self.cache = []
+
+    def add(self, item):
+        if len(self.cache) >= self.size:
+            self.cache.pop(0)
+        self.cache.append(item)
+
+    def get(self, id):
+        for item in self.cache:
+            if item.message_id == id:
+                return item
+        return None
+
+    def load_from_db(self):
+        db = database_connector.connect()
+        cursor = db.cursor()
+        cursor.execute(f"SELECT message_id FROM discord ORDER BY timestamp DESC LIMIT {self.size}")
+        for message_id in cursor.fetchall():
+            self.cache.append(message_id[0])
+        cursor.close()
+        print("caching initialized")
+
+message_cache = CustomCache()
+message_cache.load_from_db()
 
 @discord_connector.event
 async def on_ready():
@@ -38,15 +65,21 @@ async def fetch_recent_messages(channel):
         if not result:
             await on_message(message)
         else:
-            await on_message_edit(result[2], message)
+            content = await parse_content(message, discord_connector)
+            content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
+            if result[8] != content:
+                await on_message_edit(result[8], content)
 
         for reaction in message.reactions:
             user = type('User', (object,), {'id': 'unknown'})
             await update_reactions(reaction, user, message, on_message)
 
 
+
 @discord_connector.event
 async def on_message_edit(before_content, after_message):
+    # print("before: " ,before_content)
+    # print("after: ", after_message)
     if after_message.author == discord_connector.user:
         return
     
@@ -83,8 +116,6 @@ async def on_message(message):
         (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, content, message.channel.name, ref_id, thread_id, message_type),
         update=True
     )
-
-
 
 
 @discord_connector.event
