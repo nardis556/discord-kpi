@@ -6,31 +6,34 @@ import re
 from init import database_connector, discord_connector
 
 
-
 # @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 # async def database_query(query, values=None, fetch=False):
-#     # print('database_query')
-#     db = database_connector.connect()
-#     cursor = db.cursor()
-#     if values:
-#         cursor.execute(query, values)
-#     else:
-#         cursor.execute(query)
+#     with database_connector.connect() as db:
+#         with db.cursor() as cursor:
+#             if values:
+#                 cursor.execute(query, values)
+#             else:
+#                 cursor.execute(query)
 
-#     result = None
-#     if fetch:
-#         result = cursor.fetchone()
-
-#     db.commit()
-#     db.close()
+#             result = None
+#             if fetch:
+#                 result = cursor.fetchone()
+#             db.commit()
+#         db.close()
+        
 #     return result
 
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-async def database_query(query, values=None, fetch=False):
+async def database_query(query, values=None, fetch=False, update=False):
     with database_connector.connect() as db:
         with db.cursor() as cursor:
             if values:
-                cursor.execute(query, values)
+                if update:
+                    duplicate_query = query + " ON DUPLICATE KEY UPDATE content=VALUES(content)"
+                    cursor.execute(duplicate_query, values)
+                else:
+                    cursor.execute(query, values)
             else:
                 cursor.execute(query)
 

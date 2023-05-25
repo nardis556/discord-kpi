@@ -3,7 +3,7 @@ import discord
 from datetime import datetime, timedelta
 import traceback
 import re
-from init import discord_connector, database_connector
+from init import discord_connector, database_connector, message_cache
 from utils import database_query, update_reactions, parse_content, message_id_selector, get_type_of_message
 
 
@@ -65,6 +65,8 @@ async def on_message(message):
     if message.author == discord_connector.user:
         return
 
+    message_cache.add(message.id)
+
     ref_id = message.reference.message_id if message.reference else None
     thread_id = message.channel.id if isinstance(message.channel, discord.Thread) else None
 
@@ -78,8 +80,11 @@ async def on_message(message):
 
     await database_query(
         "INSERT INTO discord (timestamp, user_id, username, discriminator, nick, message_id, content, channel, ref_id, thread_id, message_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, content, message.channel.name, ref_id, thread_id, message_type)
+        (datetime.now(), message.author.id, message.author.name, message.author.discriminator, nick, message.id, content, message.channel.name, ref_id, thread_id, message_type),
+        update=True
     )
+
+
 
 
 @discord_connector.event
@@ -92,14 +97,22 @@ async def on_message_delete(message):
 
 @discord_connector.event
 async def on_reaction_add(reaction, user):
+    if message_cache.get(reaction.message.id) is None: 
+        message_cache.add(reaction.message.id) 
+
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
 
 
 @discord_connector.event
 async def on_reaction_remove(reaction, user):
+    if message_cache.get(reaction.message.id) is None:
+        message_cache.add(reaction.message.id)
+
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
+
+
 
 
 @discord_connector.event
