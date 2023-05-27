@@ -31,8 +31,8 @@ class CustomCache:
         cursor.close()
         print("caching initialized")
 
-message_cache = CustomCache()
-message_cache.load_from_db()
+# message_cache = CustomCache()
+# message_cache.load_from_db()
 
 @discord_connector.event
 async def on_ready():
@@ -41,7 +41,7 @@ async def on_ready():
         for channel in guild.channels:
             if isinstance(channel, discord.TextChannel):
                 if channel.permissions_for(guild.me).read_messages:
-                    await fetch_recent_messages(channel)
+                    await fetch_recent_messages(channel, 2)
                     # await add_all_members()
 
 @discord_connector.event
@@ -51,12 +51,46 @@ async def on_resumed():
         for channel in guild.channels:
             if isinstance(channel, discord.TextChannel):
                 if channel.permissions_for(guild.me).read_messages:
-                    await fetch_recent_messages(channel)
+                    await fetch_recent_messages(channel, 0.5)
 
 
-async def fetch_recent_messages(channel):
+# async def fetch_recent_messages(channel):
+#     now = datetime.utcnow()
+#     limit_time = now - timedelta(hours=2)
+
+#     async for message in channel.history(limit=None, after=limit_time):
+
+#         result = await message_id_selector(message)
+
+#         if not result:
+#             await on_message(message)
+#         else:
+#             await on_message_edit(result[2], message)
+
+#         for reaction in message.reactions:
+#             user = type('User', (object,), {'id': 'unknown'})
+#             await update_reactions(reaction, user, message, on_message)
+
+
+# @discord_connector.event
+# async def on_message_edit(before_content, after_message):
+#     if after_message.author == discord_connector.user:
+#         return
+    
+#     result = await message_id_selector(after_message)
+
+#     if not result or result[2] == after_message.content:
+#         return
+
+#     await database_query(
+#         "UPDATE discord SET content_edit = CONCAT(IFNULL(content_edit,''), %s) WHERE message_id = %s",
+#         (f"{after_message.content}\n", after_message.id)
+#     )
+
+
+async def fetch_recent_messages(channel, fetch_from_hours_ago):
     now = datetime.utcnow()
-    limit_time = now - timedelta(hours=2)
+    limit_time = now - timedelta(hours=fetch_from_hours_ago)
 
     async for message in channel.history(limit=None, after=limit_time):
 
@@ -68,7 +102,7 @@ async def fetch_recent_messages(channel):
             content = await parse_content(message, discord_connector)
             content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
             if result[8] != content:
-                await on_message_edit(result[8], content)
+                await on_message_edit(result[8], message ,content)
 
         for reaction in message.reactions:
             user = type('User', (object,), {'id': 'unknown'})
@@ -77,12 +111,15 @@ async def fetch_recent_messages(channel):
 
 
 @discord_connector.event
-async def on_message_edit(before_content, after_message):
+async def on_message_edit(before_content, after_message, parsed_content):
     # print("before: " ,before_content)
     # print("after: ", after_message)
     if after_message.author == discord_connector.user:
         return
-    
+    if not parsed_content:
+        parsed_content = parse_content(after_message)
+        parsed_content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', parsed_content)
+
     result = await message_id_selector(after_message)
 
     if not result or result[2] == after_message.content:
@@ -90,7 +127,7 @@ async def on_message_edit(before_content, after_message):
 
     await database_query(
         "UPDATE discord SET content_edit = CONCAT(IFNULL(content_edit,''), %s) WHERE message_id = %s",
-        (f"{after_message.content}\n", after_message.id)
+        (f"{parsed_content}\n", after_message.id)
     )
 
 @discord_connector.event
@@ -98,7 +135,7 @@ async def on_message(message):
     if message.author == discord_connector.user:
         return
 
-    message_cache.add(message.id)
+    # message_cache.add(message.id)
 
     ref_id = message.reference.message_id if message.reference else None
     thread_id = message.channel.id if isinstance(message.channel, discord.Thread) else None
@@ -128,8 +165,8 @@ async def on_message_delete(message):
 
 @discord_connector.event
 async def on_reaction_add(reaction, user):
-    if message_cache.get(reaction.message.id) is None: 
-        message_cache.add(reaction.message.id) 
+    # if message_cache.get(reaction.message.id) is None: 
+    #     message_cache.add(reaction.message.id) 
 
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
@@ -137,8 +174,8 @@ async def on_reaction_add(reaction, user):
 
 @discord_connector.event
 async def on_reaction_remove(reaction, user):
-    if message_cache.get(reaction.message.id) is None:
-        message_cache.add(reaction.message.id)
+    # if message_cache.get(reaction.message.id) is None:
+    #     message_cache.add(reaction.message.id)
 
     message = await reaction.message.channel.fetch_message(reaction.message.id)
     await update_reactions(reaction, user, message, on_message)
