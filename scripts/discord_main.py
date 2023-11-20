@@ -100,7 +100,7 @@ async def fetch_recent_messages(channel, fetch_from_hours_ago):
             await on_message(message)
         else:
             content = await parse_content(message, discord_connector)
-            content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
+            # content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content)
             if result[8] != content:
                 await on_message_edit(result[8], message ,content)
 
@@ -111,19 +111,21 @@ async def fetch_recent_messages(channel, fetch_from_hours_ago):
 
 
 @discord_connector.event
-async def on_message_edit(before_content, after_message, parsed_content):
+async def on_message_edit(before_content, after_message, parsed_content=False):
     # print("before: " ,before_content)
     # print("after: ", after_message)
     if after_message.author == discord_connector.user:
         return
     if not parsed_content:
-        parsed_content = parse_content(after_message)
-        parsed_content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', parsed_content)
+        parsed_content = await parse_content(after_message, discord_connector=False)
+        # parsed_content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', parsed_content)
 
     result = await message_id_selector(after_message)
 
     if not result or result[2] == after_message.content:
         return
+    
+    # print(parsed_content)
 
     await database_query(
         "UPDATE discord SET content_edit = CONCAT(IFNULL(content_edit,''), %s) WHERE message_id = %s",

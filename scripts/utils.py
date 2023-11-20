@@ -47,13 +47,14 @@ async def database_query(query, values=None, fetch=False, update=False):
 
 
 
-async def parse_content(message, discord_connector):
+async def parse_content(message, discord_connector=False):
     # print('parse_content')
     content = message.content
     user_mentions = re.findall(r'<@(\d+)>', content)
-    for user_id in user_mentions:
-        user = await discord_connector.fetch_user(int(user_id))
-        content = content.replace(f'<@{user_id}>', f'@{user.name}#{user.discriminator}')
+    if discord_connector != False:
+        for user_id in user_mentions:
+            user = await discord_connector.fetch_user(int(user_id))
+            content = content.replace(f'<@{user_id}>', f'@{user.name}#{user.discriminator}')
 
     emoji_matches = re.findall(r'<a?:([^:]+):\d+>', content)
     if emoji_matches:
@@ -74,6 +75,8 @@ async def parse_content(message, discord_connector):
             content = f'{image_urls}'
         else:
             content = f'{content}\n{image_urls}'
+
+    content = re.sub(r'<a?:([^:]+):\d+>', r'EMOJI: \1', content) # remove re.sub in main
 
     return content
 
