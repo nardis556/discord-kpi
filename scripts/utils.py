@@ -46,7 +46,7 @@ async def database_query(query, values=None, fetch=False, update=False):
     return result
 
 
-
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def parse_content(message, discord_connector=False):
     # print('parse_content')
     content = message.content
@@ -82,7 +82,7 @@ async def parse_content(message, discord_connector=False):
 
 
 
-
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def update_reactions(reaction, user, message, on_message):
     db = database_connector.connect()
     cursor = db.cursor()
@@ -113,7 +113,7 @@ async def update_reactions(reaction, user, message, on_message):
     )
 
 
-
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def update_message(message):
     db = database_connector.connect()
     cursor = db.cursor()
@@ -143,6 +143,8 @@ async def update_message(message):
         (content, message.id)
     )
 
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def message_id_selector(message):
     db = database_connector.connect()
     cursor = db.cursor()
@@ -151,5 +153,7 @@ async def message_id_selector(message):
     db.close()
     return result
 
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def get_type_of_message(ref_id, thread_id):
     return 'replying_in_thread' if thread_id and ref_id else ('thread' if thread_id else ('reply' if ref_id else 'original'))
