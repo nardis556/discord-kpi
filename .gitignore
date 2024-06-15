@@ -7,4 +7,4 @@ __pycache__
 cron/check*
 cron/daily*
 cron/hourly*
-scripts/*.csv
+scripts/*.csv*

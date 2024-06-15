@@ -57,43 +57,6 @@ async def alert_user(user_id):
     except Exception as e:
         return e
 
-        
-# async def assign_role_to_user(user_id, guild_id, role_id):
-#     guild = discord_connector.get_guild(guild_id)
-#     if not guild:
-#         logging.info(f"Guild with ID {guild_id} not found.")
-#         return
-
-#     try:
-#         member = await guild.fetch_member(user_id)
-#     except:
-#         logging.info(f"Member with ID {user_id} not found in guild {guild_id}.")
-#         return
-
-#     set_role = guild.get_role(role_id)
-#     if not set_role:
-#         logging.info(f"Role with ID {role_id} not found in guild {guild_id}.")
-#         return
-    
-#     remove_role_1 = guild.get_role(remove_role_id_1)
-#     if not remove_role_1:
-#         logging.info(f"Role with ID {remove_role_id_1} not found in guild {remove_role_id_1}.")
-#         return
-
-#     try:
-#         await member.add_roles(set_role)
-#         logging.info(f"Role {set_role.name} added to user {member.name}.")
-        
-#         await member.remove_roles(remove_role_1)
-#         logging.info(f"Role {remove_role_1.name} removed from user {member.name}.")
-
-#         if not (user_id == 111244106990153728 or user_id == "111244106990153728"):
-#             await alert_user(user_id)
-
-        
-#     except Exception as e:
-#         logging.error(f"Failed to add or remove role: {e}")
-
 async def assign_role_to_user(user_id, guild_id, role_id):
     guild = discord_connector.get_guild(guild_id)
     if not guild:
