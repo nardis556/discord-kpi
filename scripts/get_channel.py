@@ -58,6 +58,42 @@ async def alert_user(user_id):
         return e
 
         
+# async def assign_role_to_user(user_id, guild_id, role_id):
+#     guild = discord_connector.get_guild(guild_id)
+#     if not guild:
+#         logging.info(f"Guild with ID {guild_id} not found.")
+#         return
+
+#     try:
+#         member = await guild.fetch_member(user_id)
+#     except:
+#         logging.info(f"Member with ID {user_id} not found in guild {guild_id}.")
+#         return
+
+#     set_role = guild.get_role(role_id)
+#     if not set_role:
+#         logging.info(f"Role with ID {role_id} not found in guild {guild_id}.")
+#         return
+    
+#     remove_role_1 = guild.get_role(remove_role_id_1)
+#     if not remove_role_1:
+#         logging.info(f"Role with ID {remove_role_id_1} not found in guild {remove_role_id_1}.")
+#         return
+
+#     try:
+#         await member.add_roles(set_role)
+#         logging.info(f"Role {set_role.name} added to user {member.name}.")
+        
+#         await member.remove_roles(remove_role_1)
+#         logging.info(f"Role {remove_role_1.name} removed from user {member.name}.")
+
+#         if not (user_id == 111244106990153728 or user_id == "111244106990153728"):
+#             await alert_user(user_id)
+
+        
+#     except Exception as e:
+#         logging.error(f"Failed to add or remove role: {e}")
+
 async def assign_role_to_user(user_id, guild_id, role_id):
     guild = discord_connector.get_guild(guild_id)
     if not guild:
@@ -80,17 +116,25 @@ async def assign_role_to_user(user_id, guild_id, role_id):
         logging.info(f"Role with ID {remove_role_id_1} not found in guild {remove_role_id_1}.")
         return
 
-    try:
-        await member.add_roles(set_role)
+    async def retry_operation(operation, *args, max_retries=3, delay=1):
+        for attempt in range(max_retries):
+            try:
+                await operation(*args)
+                return True
+            except Exception as e:
+                logging.error(f"Attempt {attempt + 1} failed for {operation.__name__}: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(delay * (2 ** attempt))
+        return False
+
+    if await retry_operation(member.add_roles, set_role):
         logging.info(f"Role {set_role.name} added to user {member.name}.")
-        
-        await member.remove_roles(remove_role_1)
+
+    if await retry_operation(member.remove_roles, remove_role_1):
         logging.info(f"Role {remove_role_1.name} removed from user {member.name}.")
 
-        await alert_user(user_id)
-        
-    except Exception as e:
-        logging.error(f"Failed to add or remove role: {e}")
+    # if not (user_id == 111244106990153728 or user_id == "111244106990153728"):
+    await retry_operation(alert_user, user_id)
 
 
 def extract_valid_ethereum_address(text):
@@ -150,7 +194,7 @@ async def gather_channel_data(channel_name, guild_id, role_id):
                 logging.info(f"No previous data found. Starting from 24 hours ago: {last_entry_date}")
 
             current_time = datetime.now()
-            last_entry_date -= timedelta(minutes=30)
+            last_entry_date -= timedelta(minutes=5)
 
             select_query = f"""
                 SELECT *
