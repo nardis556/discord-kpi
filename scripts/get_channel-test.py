@@ -183,53 +183,57 @@ async def insert_records_into_new_table(
 
         valid_address = extract_valid_ethereum_address(content)
 
-        logging.info("found matching user")
+        if (
+            user_id == 111244106990153728 or user_id == "111244106990153728"
+        ):  # remove after test
 
-        if valid_address:
-            normalized_address = valid_address.lower()
+            logging.info("found matching user")
 
-            cursor.execute(
-                "SELECT COUNT(*) FROM wallets WHERE LOWER(CONCAT('0x', HEX(address))) = %s",
-                (normalized_address,),
-            )
-            if cursor.fetchone()[0] == 0:
-                logging.info(
-                    f"Valid Ethereum address not in wallets: {valid_address}"
-                )
+            if valid_address:
+                normalized_address = valid_address.lower()
 
                 cursor.execute(
-                    f"SELECT COUNT(*) FROM `{sanitized_channel_name}` WHERE `user_id` = %s",
-                    (user_id,),
+                    "SELECT COUNT(*) FROM wallets WHERE LOWER(CONCAT('0x', HEX(address))) = %s",
+                    (normalized_address,),
                 )
                 if cursor.fetchone()[0] == 0:
-                    insert_to_whitelist = f"INSERT INTO `{sanitized_channel_name}` VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                    record_values = list(record)
-                    record_values[8] = normalized_address
-                    cursor.execute(insert_to_whitelist, tuple(record_values))
+                    logging.info(
+                        f"Valid Ethereum address not in wallets: {valid_address}"
+                    )
 
-                    binary_address = to_bytes(hexstr=normalized_address)
-                    insert_to_wallets = "INSERT INTO wallets (address) VALUES (%s)"
-                    cursor.execute(insert_to_wallets, (binary_address,))
+                    cursor.execute(
+                        f"SELECT COUNT(*) FROM `{sanitized_channel_name}` WHERE `user_id` = %s",
+                        (user_id,),
+                    )
+                    if cursor.fetchone()[0] == 0:
+                        insert_to_whitelist = f"INSERT INTO `{sanitized_channel_name}` VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                        record_values = list(record)
+                        record_values[8] = normalized_address
+                        cursor.execute(insert_to_whitelist, tuple(record_values))
 
-                    await delete_discord_message(cursor, message_id, "discord")
+                        binary_address = to_bytes(hexstr=normalized_address)
+                        insert_to_wallets = "INSERT INTO wallets (address) VALUES (%s)"
+                        cursor.execute(insert_to_wallets, (binary_address,))
 
-                    await assign_role_to_user(user_id, guild_id, role_id)
+                        await delete_discord_message(cursor, message_id, "discord")
+
+                        await assign_role_to_user(user_id, guild_id, role_id)
+                    else:
+                        logging.info(
+                            f"User ID {user_id} already exists in '{sanitized_channel_name}', skipping insertion."
+                        )
                 else:
                     logging.info(
-                        f"User ID {user_id} already exists in '{sanitized_channel_name}', skipping insertion."
+                        f"Address {valid_address} already exists in 'wallets', skipping insertion."
                     )
+                    await delete_discord_message(cursor, message_id, "discord")
+                    await alert_wallet_already_exists(user_id)
             else:
                 logging.info(
-                    f"Address {valid_address} already exists in 'wallets', skipping insertion."
+                    f"No valid Ethereum address found in content: {content}, skipping insertion."
                 )
                 await delete_discord_message(cursor, message_id, "discord")
-                # await alert_wallet_already_exists(user_id)
-        else:
-            logging.info(
-                f"No valid Ethereum address found in content: {content}, skipping insertion."
-            )
-            await delete_discord_message(cursor, message_id, "discord")
-            # await alert_not_a_valid_address(user_id)
+                await alert_not_a_valid_address(user_id)
 
     cursor.close()
 

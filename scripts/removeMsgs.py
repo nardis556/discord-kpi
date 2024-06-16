@@ -67,7 +67,7 @@ async def delete_messages(discord_user_ids, sanitized_channel_name):
             await manage_roles(user_id)
             # await asyncio.sleep(0.1)
         logging.info("updated roles completed")
-        sys.exit()
+        sys.exit(0)
     else:
         logging.info("No user IDs provided for deletion.")
 
@@ -123,6 +123,7 @@ async def manage_roles(user_id):
 
     return updates
 
+
 @discord_connector.event
 async def on_ready():
     global guild, channel
@@ -138,10 +139,14 @@ async def on_ready():
 
     sanitized_channel_name = sanitize_channel_name(channel_name)
     asyncio.create_task(delete_messages(discord_user_ids, sanitized_channel_name))
+
+
 # discord_connector.run_bot() # removed for checking
+
 
 def start_bot():
     discord_connector.run_bot()
+
 
 if __name__ == "__main__":
     confirm = (
