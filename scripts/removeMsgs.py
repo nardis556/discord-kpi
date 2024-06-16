@@ -52,10 +52,16 @@ async def delete_messages(discord_user_ids, sanitized_channel_name):
         cursor.execute(delete_query_channel, discord_user_ids)
         logging.info(f"Deleted messages from {sanitized_channel_name}.")
 
+        # delete_query_discord = f"""
+        # DELETE FROM `discord`
+        # WHERE user_id IN ({placeholders})
+        # """
+
         delete_query_discord = f"""
         DELETE FROM `discord`
-        WHERE user_id IN ({placeholders})
+        WHERE user_id IN ({placeholders}) AND content LIKE '%0x%'
         """
+
         cursor.execute(delete_query_discord, discord_user_ids)
 
         db.commit()
