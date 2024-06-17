@@ -146,7 +146,8 @@ async def assign_role_to_user(user_id, guild_id, role_id):
         logging.info(f"Role {remove_role_1.name} removed from user {member.name}.")
 
     # if not (user_id == 111244106990153728 or user_id == "111244106990153728"):
-    await retry_operation(alert_user, user_id)
+    if await retry_operation(alert_user, user_id):
+        logging.info(f"Alert sent to user {member.name}.")
 
 
 # def extract_valid_ethereum_address(text):

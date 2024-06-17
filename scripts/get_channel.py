@@ -23,6 +23,8 @@ from config import (
     alert_user_channel,
 )
 
+# guild = None
+
 
 if LOGGING_ENABLED:
     logging.basicConfig(
@@ -71,14 +73,14 @@ async def delete_discord_message(cursor, message_id, table_name):
     delete_query = f"DELETE FROM `{table_name}` WHERE `message_id` = %s"
     cursor.execute(delete_query, (message_id,))
     logging.info(
-        f"Deleted message ID {message_id} from {table_name} due to invalid address or duplication."
+        f"Deleted message ID {message_id} from {table_name}."
     )
 
 
 async def alert_user(user_id):
     try:
         channel = discord_connector.get_channel(alert_user_channel)
-        print(channel)
+        # print(channel)
         await channel.send(f"Congrats, <@{user_id}>! You've been whitelisted!")
     except Exception as e:
         return e
@@ -102,28 +104,17 @@ async def alert_wallet_already_exists(user_id):
         return e
 
 
-async def assign_role_to_user(user_id, guild_id, role_id):
-    guild = discord_connector.get_guild(guild_id)
-    if not guild:
-        logging.info(f"Guild with ID {guild_id} not found.")
-        return
+async def assign_role_to_user(user_id, guild_id, role_id, guild, set_role, remove_role_1):
+    # guild = discord_connector.get_guild(guild_id)
+    # logging.info(f"Loaded guild: {guild}")
+    # if not guild:
+    #     logging.info(f"Guild with ID {guild_id} not found.")
+    #     return
 
     try:
         member = await guild.fetch_member(user_id)
     except:
         logging.info(f"Member with ID {user_id} not found in guild {guild_id}.")
-        return
-
-    set_role = guild.get_role(role_id)
-    if not set_role:
-        logging.info(f"Role with ID {role_id} not found in guild {guild_id}.")
-        return
-
-    remove_role_1 = guild.get_role(remove_role_id_1)
-    if not remove_role_1:
-        logging.info(
-            f"Role with ID {remove_role_id_1} not found in guild {remove_role_id_1}."
-        )
         return
 
     async def retry_operation(operation, *args, max_retries=3, delay=1):
@@ -139,15 +130,23 @@ async def assign_role_to_user(user_id, guild_id, role_id):
                     await asyncio.sleep(delay * (2**attempt))
         return False
 
+    logging.info("Attempting to add role.")
     if await retry_operation(member.add_roles, set_role):
         logging.info(f"Role {set_role.name} added to user {member.name}.")
+    else:
+        logging.info("Failed to add role.")
 
+    logging.info("Attempting to remove role.")
     if await retry_operation(member.remove_roles, remove_role_1):
         logging.info(f"Role {remove_role_1.name} removed from user {member.name}.")
+    else:
+        logging.info("Failed to remove role.")
 
-    # if not (user_id == 111244106990153728 or user_id == "111244106990153728"):
-    await retry_operation(alert_user, user_id)
-
+    logging.info("Attempting to alert user.")
+    if await retry_operation(alert_user, user_id):
+        logging.info(f"Alert sent to user {member.name}.")
+    else:
+        logging.info("Failed to send alert.")
 
 # def extract_valid_ethereum_address(text):
 #     pattern = r"0x[a-fA-F0-9]{40}"
@@ -173,7 +172,7 @@ def is_valid_ethereum_address(address):
 
 
 async def insert_records_into_new_table(
-    records, channel_name, cursor, guild_id, role_id
+    records, channel_name, cursor, guild_id, role_id, guild, set_role, remove_role_1
 ):
     sanitized_channel_name = sanitize_channel_name(channel_name)
     for record in records:
@@ -183,7 +182,7 @@ async def insert_records_into_new_table(
 
         valid_address = extract_valid_ethereum_address(content)
 
-        logging.info("found matching user")
+        # logging.info("found matching user")
 
         if valid_address:
             normalized_address = valid_address.lower()
@@ -213,7 +212,7 @@ async def insert_records_into_new_table(
 
                     await delete_discord_message(cursor, message_id, "discord")
 
-                    await assign_role_to_user(user_id, guild_id, role_id)
+                    await assign_role_to_user(user_id, guild_id, role_id, guild, set_role, remove_role_1)
                 else:
                     logging.info(
                         f"User ID {user_id} already exists in '{sanitized_channel_name}', skipping insertion."
@@ -236,6 +235,26 @@ async def insert_records_into_new_table(
 
 async def gather_channel_data(channel_name, guild_id, role_id):
     last_entry_date = None
+    
+    guild = discord_connector.get_guild(guild_id)
+    logging.info(f"Loaded guild: {guild}")
+    if not guild:
+        logging.info(f"Guild with ID {guild_id} not found.")
+        return
+    
+    set_role = guild.get_role(role_id)
+    if not set_role:
+        logging.info(f"Role with ID {role_id} not found in guild {guild_id}.")
+        return
+
+    remove_role_1 = guild.get_role(remove_role_id_1)
+    if not remove_role_1:
+        logging.info(
+            f"Role with ID {remove_role_id_1} not found in guild {remove_role_id_1}."
+        )
+        return
+    
+    
     while True:
         logging.info("Starting script")
         db = database_connector.connect()
@@ -271,7 +290,7 @@ async def gather_channel_data(channel_name, guild_id, role_id):
                     f"Inserting {len(records)} new records into {sanitized_channel_name}."
                 )
                 await insert_records_into_new_table(
-                    records, sanitized_channel_name, cursor, guild_id, role_id
+                    records, sanitized_channel_name, cursor, guild_id, role_id, guild, set_role, remove_role_1
                 )
                 last_entry_date = records[-1][0]
             else:

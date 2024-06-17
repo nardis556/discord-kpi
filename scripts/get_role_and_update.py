@@ -20,7 +20,7 @@ async def process_channel_data():
     db = database_connector.connect()
     cursor = db.cursor()
     sanitized_channel_name = sanitize_channel_name(channel_name)
-    start_date = datetime(2024, 4, 29)
+    start_date = datetime(2024, 6, 13)
     start_date_str = start_date.strftime('%Y-%m-%d %H:%M:%S')
     offset = 0
     batch_size = 100
@@ -42,7 +42,7 @@ async def process_channel_data():
         for (user_id,) in user_ids:
             updates = await manage_roles(user_id)
             total_updates += updates
-            await asyncio.sleep(0.05)
+            # await asyncio.sleep(0.05)
 
         # await asyncio.sleep(0.1)
         offset += batch_size

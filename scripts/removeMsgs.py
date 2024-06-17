@@ -9,8 +9,8 @@ from init import database_connector, discord_connector
 from config import channel_name, guild_id, role_id, remove_role_id_1, alert_user_channel
 
 
-guild = any
-channel = any
+guild = None
+channel = None
 
 
 LOGGING_ENABLED = True
@@ -83,9 +83,9 @@ async def delete_messages(discord_user_ids, sanitized_channel_name):
 
 async def manage_roles(user_id):
     global guild
-    if not guild:
-        logging.error("Guild not found")
-        return 0
+    # if not guild:
+    #     logging.error("Guild not found")
+    #     return 0
 
     try:
         member = await guild.fetch_member(user_id)
