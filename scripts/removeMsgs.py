@@ -41,6 +41,12 @@ async def alert_user(user_id):
 async def delete_messages(discord_user_ids, sanitized_channel_name):
     db = database_connector.connect()
     cursor = db.cursor()
+    
+    guild = discord_connector.get_guild(guild_id)
+    channel = discord_connector.get_channel(alert_user_channel)
+    
+    role_to_add = guild.get_role(remove_role_id_1)
+    role_to_remove = guild.get_role(role_id)
 
     if discord_user_ids:
         placeholders = ", ".join(["%s"] * len(discord_user_ids))
@@ -68,10 +74,20 @@ async def delete_messages(discord_user_ids, sanitized_channel_name):
 
         logging.info("Deleted messages from discord table.")
 
+        updated = 0
+
+        # for user_id in discord_user_ids:
+        #     # asyncio.create_task(manage_roles(user_id))
+        #     await manage_roles(user_id, guild, channel, role_to_add, role_to_remove)
+        #     # await asyncio.sleep(0.1)
+        
         for user_id in discord_user_ids:
-            # asyncio.create_task(manage_roles(user_id))
-            await manage_roles(user_id)
+            updates = await manage_roles(user_id, guild, channel, role_to_add, role_to_remove)
+            updated += updates
             # await asyncio.sleep(0.1)
+        
+        logging.info(f"Total role updates performed: {updated}")
+        
         logging.info("updated roles completed")
         sys.exit(0)
     else:
@@ -81,11 +97,7 @@ async def delete_messages(discord_user_ids, sanitized_channel_name):
     db.close()
 
 
-async def manage_roles(user_id):
-    global guild
-    # if not guild:
-    #     logging.error("Guild not found")
-    #     return 0
+async def manage_roles(user_id, guild, channel, role_to_add, role_to_remove):
 
     try:
         member = await guild.fetch_member(user_id)
@@ -97,8 +109,7 @@ async def manage_roles(user_id):
         return 0
 
     updates = 0
-    role_to_add = guild.get_role(remove_role_id_1)
-    role_to_remove = guild.get_role(role_id)
+
 
     async def retry_operation(operation, *args, max_retries=10, delay=1):
         for attempt in range(max_retries):
@@ -133,8 +144,6 @@ async def manage_roles(user_id):
 @discord_connector.event
 async def on_ready():
     global guild, channel
-    guild = discord_connector.get_guild(guild_id)
-    channel = discord_connector.get_channel(alert_user_channel)
     logging.info(f"{discord_connector.user.name} has connected to Discord!")
 
     discord_user_ids = []

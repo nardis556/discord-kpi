@@ -23,7 +23,7 @@ from config import (
     alert_user_channel,
 )
 
-# guild = None
+LOGGING_ENABLED = True
 
 
 if LOGGING_ENABLED:
@@ -72,39 +72,43 @@ def create_new_table(db, channel_name):
 async def delete_discord_message(cursor, message_id, table_name):
     delete_query = f"DELETE FROM `{table_name}` WHERE `message_id` = %s"
     cursor.execute(delete_query, (message_id,))
-    logging.info(
-        f"Deleted message ID {message_id} from {table_name}."
-    )
+    logging.info(f"Deleted message ID {message_id} from {table_name}.")
 
 
-async def alert_user(user_id):
+async def alert_user(user_id, channel):
     try:
-        channel = discord_connector.get_channel(alert_user_channel)
+        # channel = discord_connector.get_channel(alert_user_channel)
         # print(channel)
         await channel.send(f"Congrats, <@{user_id}>! You've been whitelisted!")
     except Exception as e:
         return e
 
 
-async def alert_not_a_valid_address(user_id):
+async def alert_not_a_valid_address(user_id, channel):
     try:
-        channel = discord_connector.get_channel(alert_user_channel)
-        print(channel)
-        await channel.send(f"<@{user_id}> not a valid EVM address. Please enter a different address!")
+        # channel = discord_connector.get_channel(alert_user_channel)
+        # print(channel)
+        await channel.send(
+            f"<@{user_id}> This address is not a valid EVM address. Please enter an EVM address to get whitelisted."
+        )
     except Exception as e:
         return e
 
 
-async def alert_wallet_already_exists(user_id):
+async def alert_wallet_already_exists(user_id, channel):
     try:
-        channel = discord_connector.get_channel(alert_user_channel)
-        print(channel)
-        await channel.send(f"<@{user_id}> wallet already exists! Please enter a different address.")
+        # channel = discord_connector.get_channel(alert_user_channel)
+        # print(channel)
+        await channel.send(
+            f"<@{user_id}> This address has already been used. Please enter a new EVM address to get whitelisted."
+        )
     except Exception as e:
         return e
 
 
-async def assign_role_to_user(user_id, guild_id, role_id, guild, set_role, remove_role_1):
+async def assign_role_to_user(
+    user_id, guild_id, role_id, guild, set_role, remove_role_1, channel
+):
     # guild = discord_connector.get_guild(guild_id)
     # logging.info(f"Loaded guild: {guild}")
     # if not guild:
@@ -143,10 +147,11 @@ async def assign_role_to_user(user_id, guild_id, role_id, guild, set_role, remov
         logging.info("Failed to remove role.")
 
     logging.info("Attempting to alert user.")
-    if await retry_operation(alert_user, user_id):
+    if await retry_operation(alert_user, user_id, channel):
         logging.info(f"Alert sent to user {member.name}.")
     else:
         logging.info("Failed to send alert.")
+
 
 # def extract_valid_ethereum_address(text):
 #     pattern = r"0x[a-fA-F0-9]{40}"
@@ -172,9 +177,18 @@ def is_valid_ethereum_address(address):
 
 
 async def insert_records_into_new_table(
-    records, channel_name, cursor, guild_id, role_id, guild, set_role, remove_role_1
+    records,
+    channel_name,
+    cursor,
+    guild_id,
+    role_id,
+    guild,
+    set_role,
+    remove_role_1,
+    channel,
+    sanitized_channel_name,
 ):
-    sanitized_channel_name = sanitize_channel_name(channel_name)
+    # sanitized_channel_name = sanitize_channel_name(channel_name)
     for record in records:
         user_id = record[1]
         content = record[8]
@@ -192,9 +206,7 @@ async def insert_records_into_new_table(
                 (normalized_address,),
             )
             if cursor.fetchone()[0] == 0:
-                logging.info(
-                    f"Valid Ethereum address not in wallets: {valid_address}"
-                )
+                logging.info(f"Valid Ethereum address not in wallets: {valid_address}")
 
                 cursor.execute(
                     f"SELECT COUNT(*) FROM `{sanitized_channel_name}` WHERE `user_id` = %s",
@@ -212,7 +224,15 @@ async def insert_records_into_new_table(
 
                     await delete_discord_message(cursor, message_id, "discord")
 
-                    await assign_role_to_user(user_id, guild_id, role_id, guild, set_role, remove_role_1)
+                    await assign_role_to_user(
+                        user_id,
+                        guild_id,
+                        role_id,
+                        guild,
+                        set_role,
+                        remove_role_1,
+                        channel,
+                    )
                 else:
                     logging.info(
                         f"User ID {user_id} already exists in '{sanitized_channel_name}', skipping insertion."
@@ -222,26 +242,26 @@ async def insert_records_into_new_table(
                     f"Address {valid_address} already exists in 'wallets', skipping insertion."
                 )
                 await delete_discord_message(cursor, message_id, "discord")
-                # await alert_wallet_already_exists(user_id)
+                await alert_wallet_already_exists(user_id, channel)
         else:
             logging.info(
                 f"No valid Ethereum address found in content: {content}, skipping insertion."
             )
             await delete_discord_message(cursor, message_id, "discord")
-            # await alert_not_a_valid_address(user_id)
+            await alert_not_a_valid_address(user_id, channel)
 
     cursor.close()
 
 
 async def gather_channel_data(channel_name, guild_id, role_id):
     last_entry_date = None
-    
+
     guild = discord_connector.get_guild(guild_id)
     logging.info(f"Loaded guild: {guild}")
     if not guild:
         logging.info(f"Guild with ID {guild_id} not found.")
         return
-    
+
     set_role = guild.get_role(role_id)
     if not set_role:
         logging.info(f"Role with ID {role_id} not found in guild {guild_id}.")
@@ -253,14 +273,16 @@ async def gather_channel_data(channel_name, guild_id, role_id):
             f"Role with ID {remove_role_id_1} not found in guild {remove_role_id_1}."
         )
         return
-    
-    
+
+    channel = discord_connector.get_channel(alert_user_channel)
+
+    sanitized_channel_name = sanitize_channel_name(channel_name)
+    logging.info(sanitized_channel_name)
+
     while True:
         logging.info("Starting script")
         db = database_connector.connect()
         cursor = db.cursor()
-        sanitized_channel_name = sanitize_channel_name(channel_name)
-        logging.info(sanitized_channel_name)
 
         try:
             create_new_table(db, sanitized_channel_name)
@@ -290,7 +312,16 @@ async def gather_channel_data(channel_name, guild_id, role_id):
                     f"Inserting {len(records)} new records into {sanitized_channel_name}."
                 )
                 await insert_records_into_new_table(
-                    records, sanitized_channel_name, cursor, guild_id, role_id, guild, set_role, remove_role_1
+                    records,
+                    sanitized_channel_name,
+                    cursor,
+                    guild_id,
+                    role_id,
+                    guild,
+                    set_role,
+                    remove_role_1,
+                    channel,
+                    sanitized_channel_name,
                 )
                 last_entry_date = records[-1][0]
             else:
@@ -316,5 +347,6 @@ async def gather_channel_data(channel_name, guild_id, role_id):
 async def on_ready():
     logging.info(f"{discord_connector.user.name} has connected to Discord!")
     asyncio.create_task(gather_channel_data(channel_name, guild_id, role_id))
+
 
 discord_connector.run_bot()
