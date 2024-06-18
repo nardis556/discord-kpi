@@ -23,7 +23,7 @@ from config import (
     alert_user_channel,
 )
 
-LOGGING_ENABLED = True
+# LOGGING_ENABLED = True
 
 
 if LOGGING_ENABLED:
