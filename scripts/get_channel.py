@@ -74,12 +74,14 @@ async def delete_discord_message(cursor, message_id, table_name):
     cursor.execute(delete_query, (message_id,))
     logging.info(f"Deleted message ID {message_id} from {table_name}.")
 
+announcement_channel_id = 1050090627880190002
 
 async def alert_user(user_id, channel):
     try:
         # channel = discord_connector.get_channel(alert_user_channel)
         # print(channel)
-        await channel.send(f"Congrats, <@{user_id}>! You've been whitelisted!")
+        # await channel.send(f"Congrats, <@{user_id}>! You've been whitelisted!")
+        await channel.send(f"Congrats, <@{user_id}>! You’ve been whitelisted! Please ***DO NOT TRADE*** until Round 2 officially begins or you’ll have to whitelist again. Watch <#{announcement_channel_id}> for info.")
     except Exception as e:
         return e
 

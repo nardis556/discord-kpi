@@ -3,6 +3,7 @@ import asyncio
 import logging
 from tenacity import retry, stop_after_attempt, wait_fixed
 from datetime import datetime
+from time import sleep
 import sys
 import discord
 from init import database_connector, discord_connector
@@ -84,7 +85,7 @@ async def delete_messages(discord_user_ids, sanitized_channel_name):
         for user_id in discord_user_ids:
             updates = await manage_roles(user_id, guild, channel, role_to_add, role_to_remove)
             updated += updates
-            # await asyncio.sleep(0.1)
+            sleep(0.05)
         
         logging.info(f"Total role updates performed: {updated}")
         
